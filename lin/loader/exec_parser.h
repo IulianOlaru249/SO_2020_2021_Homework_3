@@ -17,10 +17,10 @@
 #define PERM_X 0x4
 
 typedef struct _struct_pages {
-	/* Checks wether a page is present or not */
-    int *appears;
+	/* Checks whether a page is present or not */
+	int *appears;
 	/* Remember the number of sizes */
-    int size;
+	int size;
 } struct_pages;
 
 typedef struct so_seg {

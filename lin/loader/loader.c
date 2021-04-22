@@ -79,31 +79,20 @@ static void my_handler(int signum, siginfo_t *info, void *context)
 		current_total_size = (((int)info->si_addr -
 			segment->vaddr) / page_size) * page_size;
 
+		/* Map new page */
 		switch (current_total_size < segment->file_size) {
 
 		case 0:
-			/* Map new page */
 			res = mmap(((void *) segment->vaddr +
 				current_total_size),
 				page_size,
 				PROT_WRITE,
 				MAP_PRIVATE | MAP_ANONYMOUS,
-				-1,
+				file,
 				0);
-			DIE (res == NULL, "mmap failure!\n");
-
-			/* Give permissions */
-			ret = mprotect(res, page_size, segment->perm);
-			DIE (ret != 0, "mprotect failure!\n");
-
-			/* Marked as mapped */
-			page_offset = ((int)info->si_addr - segment->vaddr) /
-				page_size;
-			pages->appears[page_offset] = 1;
-			return;
-
+			DIE(res == NULL, "mmap failure!\n");
+			break;
 		case 1:
-			/* Map page */
 			res = mmap(((void *) segment->vaddr +
 				current_total_size),
 				page_size,
@@ -112,38 +101,39 @@ static void my_handler(int signum, siginfo_t *info, void *context)
 				file,
 				segment->offset +
 				current_total_size);
-			DIE (res == NULL, "mmap failure!\n");
-
-			/* Clear junk from memory area of new page */
-			if ((current_total_size + page_size >=
-					segment->file_size)) {
-
-				/* Compute the bounds of the page */
-				lower_bound = (segment->vaddr +
-					segment->file_size);
-				upper_bound = ((int)(info->si_addr -
-					segment->vaddr)) / page_size + 1;
-				upper_bound = upper_bound * page_size -
-					segment->file_size;
-
-				memset((void *)lower_bound,
-					0,
-					upper_bound);
-			}
-
-			/* Give permissions */
-			mprotect(res, page_size, segment->perm);
-			DIE (ret != 0, "mprotect failure!\n");
-
-			/* Mark as mapped */
-			page_offset = ((int)info->si_addr - segment->vaddr) /
-				page_size;
-			pages->appears[page_offset] = 1;
-			return;
+			DIE(res == NULL, "mmap failure!\n");
+			break;
 		}
-	}
 
-	old_handle.sa_sigaction(signum, info, context);
+		/* Clear junk from memory area of new page */
+		if ((current_total_size + page_size >=
+				segment->file_size)) {
+
+			/* Compute the bounds of the page */
+			lower_bound = (segment->vaddr +
+				segment->file_size);
+			upper_bound = ((int)(info->si_addr -
+				segment->vaddr)) / page_size + 1;
+			upper_bound = upper_bound * page_size -
+				segment->file_size;
+
+			memset((void *)lower_bound,
+				0,
+				upper_bound);
+		}
+
+		/* Give permissions */
+		mprotect(res, page_size, segment->perm);
+		DIE(ret != 0, "mprotect failure!\n");
+
+		/* Mark as mapped */
+		page_offset = ((int)info->si_addr - segment->vaddr) /
+			page_size;
+		pages->appears[page_offset] = 1;
+	} else {
+		/* Call old handler */
+		old_handle.sa_sigaction(signum, info, context);
+	}
 }
 
 struct_pages *init_pages(int no_pages)
@@ -151,7 +141,7 @@ struct_pages *init_pages(int no_pages)
 	struct_pages *pages = NULL;
 
 	/* Initiate array to keep track of mapped pages for each segment */
-	pages = (void*)malloc(sizeof(struct _struct_pages));
+	pages = (void *)malloc(sizeof(struct _struct_pages));
 	DIE(pages == NULL, "Malloc failure!\n");
 	pages->size = no_pages;
 	pages->appears = (int *)calloc(pages->size, sizeof(int));
@@ -189,11 +179,11 @@ int so_execute(char *path, char *argv[])
 
 	/* Parse the executable */
 	exec = so_parse_exec(path);
-	DIE (!exec, "Open failure!\n");
+	DIE(!exec, "Open failure!\n");
 
 	/* Open file for reading */
 	file = open(path, O_RDONLY, 0646);
-	DIE (open < 0, "Open failure!\n");
+	DIE(open < 0, "Open failure!\n");
 
 	/* Init segments */
 	for (i = 0; i < exec->segments_no; i++) {
