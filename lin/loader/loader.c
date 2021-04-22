@@ -123,7 +123,7 @@ static void my_handler(int signum, siginfo_t *info, void *context)
 		}
 
 		/* Give permissions */
-		mprotect(res, page_size, segment->perm);
+		ret = mprotect(res, page_size, segment->perm);
 		DIE(ret != 0, "mprotect failure!\n");
 
 		/* Mark as mapped */
